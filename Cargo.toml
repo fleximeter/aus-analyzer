@@ -10,5 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 aus = "0.1.6"
+num = "0.4.3"
 numpy = "0.23.0"
 pyo3 = "0.23.1"
+threadpool = "1.8.1"

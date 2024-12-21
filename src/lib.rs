@@ -1,10 +1,10 @@
-use aus::analysis::Analysis;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyIOError;
 use aus;
 use pyo3::types::PyDict;
 use numpy::pyo3::Python;
-use numpy::IntoPyArray;
+use numpy::{PyArray2, IntoPyArray};
+mod analyzer;
 
 /// Loads an audio file and analyzes it
 #[pyfunction]
@@ -35,45 +35,58 @@ fn analyze(py: Python, file: String, fft_size: usize, max_num_threads: usize) ->
         }
     };
 
-    let analysis = aus::mp::stft_analysis(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, Some(max_num_threads));
+    let analysis = analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, Some(max_num_threads));
     let analysis_map = make_analysis_map(py, analysis);
     Ok(analysis_map)
 }
 
 // Converts a Vector of Analysis structs to a HashMap
-fn make_analysis_map(py: Python, analysis: Vec<Analysis>) -> Bound<'_, PyDict> {
-    let arr_len: usize = analysis.len();
+fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Bound<'_, PyDict> {
+    let arr_len: usize = analysis.analysis.len();
     let analysis_dict = PyDict::new(py);
-    let mut centroid = vec![0.0; arr_len];
-    let mut variance = vec![0.0; arr_len];
-    let mut skewness = vec![0.0; arr_len];
-    let mut kurtosis = vec![0.0; arr_len];
-    let mut entropy = vec![0.0; arr_len];
-    let mut flatness = vec![0.0; arr_len];
-    let mut roll_50 = vec![0.0; arr_len];
-    let mut roll_75 = vec![0.0; arr_len];
-    let mut roll_90 = vec![0.0; arr_len];
-    let mut roll_95 = vec![0.0; arr_len];
-    let mut slope = vec![0.0; arr_len];
-    let mut slope01 = vec![0.0; arr_len];
-    let mut slope15 = vec![0.0; arr_len];
-    let mut slope05 = vec![0.0; arr_len];
+    let fft_size = analysis.magnitude_spectrogram[0].len();
+    let mut magnitude_spectrogram: Vec<Vec<f32>> = Vec::new();
+    let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
+    let mut centroid: Vec<f32> = vec![0.0; arr_len];
+    let mut variance: Vec<f32> = vec![0.0; arr_len];
+    let mut skewness: Vec<f32> = vec![0.0; arr_len];
+    let mut kurtosis: Vec<f32> = vec![0.0; arr_len];
+    let mut entropy: Vec<f32> = vec![0.0; arr_len];
+    let mut flatness: Vec<f32> = vec![0.0; arr_len];
+    let mut roll_50: Vec<f32> = vec![0.0; arr_len];
+    let mut roll_75: Vec<f32> = vec![0.0; arr_len];
+    let mut roll_90: Vec<f32> = vec![0.0; arr_len];
+    let mut roll_95: Vec<f32> = vec![0.0; arr_len];
+    let mut slope: Vec<f32> = vec![0.0; arr_len];
+    let mut slope01: Vec<f32> = vec![0.0; arr_len];
+    let mut slope15: Vec<f32> = vec![0.0; arr_len];
+    let mut slope05: Vec<f32> = vec![0.0; arr_len];
     for i in 0..arr_len {
-        centroid[i] = analysis[i].spectral_centroid;
-        variance[i] = analysis[i].spectral_variance;
-        skewness[i] = analysis[i].spectral_skewness;
-        kurtosis[i] = analysis[i].spectral_kurtosis;
-        entropy[i] = analysis[i].spectral_entropy;
-        flatness[i] = analysis[i].spectral_flatness;
-        roll_50[i] = analysis[i].spectral_roll_off_50;
-        roll_75[i] = analysis[i].spectral_roll_off_75;
-        roll_90[i] = analysis[i].spectral_roll_off_90;
-        roll_95[i] = analysis[i].spectral_roll_off_95;
-        slope[i] = analysis[i].spectral_slope;
-        slope01[i] = analysis[i].spectral_slope_0_1_khz;
-        slope15[i] = analysis[i].spectral_slope_1_5_khz;
-        slope05[i] = analysis[i].spectral_slope_0_5_khz;
+        let mut magnitude_spectrum = vec![0.0; fft_size];
+        let mut phase_spectrum = vec![0.0; fft_size];
+        for j in 0..fft_size {
+            magnitude_spectrum[j] = analysis.magnitude_spectrogram[i][j] as f32;
+            phase_spectrum[j] = analysis.phase_spectrogram[i][j] as f32;
+        }
+        centroid[i] = analysis.analysis[i].spectral_centroid as f32;
+        variance[i] = analysis.analysis[i].spectral_variance as f32;
+        skewness[i] = analysis.analysis[i].spectral_skewness as f32;
+        kurtosis[i] = analysis.analysis[i].spectral_kurtosis as f32;
+        entropy[i] = analysis.analysis[i].spectral_entropy as f32;
+        flatness[i] = analysis.analysis[i].spectral_flatness as f32;
+        roll_50[i] = analysis.analysis[i].spectral_roll_off_50 as f32;
+        roll_75[i] = analysis.analysis[i].spectral_roll_off_75 as f32;
+        roll_90[i] = analysis.analysis[i].spectral_roll_off_90 as f32;
+        roll_95[i] = analysis.analysis[i].spectral_roll_off_95 as f32;
+        slope[i] = analysis.analysis[i].spectral_slope as f32;
+        slope01[i] = analysis.analysis[i].spectral_slope_0_1_khz as f32;
+        slope15[i] = analysis.analysis[i].spectral_slope_1_5_khz as f32;
+        slope05[i] = analysis.analysis[i].spectral_slope_0_5_khz as f32;
+        magnitude_spectrogram.push(magnitude_spectrum);
+        phase_spectrogram.push(phase_spectrum);
     }
+    analysis_dict.set_item(String::from("magnitude_spectrogram"), PyArray2::from_vec2(py, &magnitude_spectrogram).unwrap()).unwrap();
+    analysis_dict.set_item(String::from("phase_spectrogram"), PyArray2::from_vec2(py, &phase_spectrogram).unwrap()).unwrap();
     analysis_dict.set_item(String::from("spectral_centroid"), centroid.into_pyarray(py).to_owned()).unwrap();
     analysis_dict.set_item(String::from("spectral_variance"), variance.into_pyarray(py).to_owned()).unwrap();
     analysis_dict.set_item(String::from("spectral_skewness"), skewness.into_pyarray(py).to_owned()).unwrap();
