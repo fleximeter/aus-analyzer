@@ -2,14 +2,25 @@ import numpy as np
 from typing import Tuple
 
 """
-Analyzes an audio file using the aus-rust crate.
+Analyzes a real FFT frame using the aus-rust crate.
+
+:param magnitude_spectrum: The real FFT magnitude spectrum to analyze
+:param fft_size: The FFT size
+:param sample_rate: The audio sample rate
+:return: A dictionary with the spectral analysis and the STFT data
+"""
+def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int) -> dict: ...
+
+"""
+Analyzes an audio file using the aus-rust crate. Loads the audio file and performs the analysis.
+The analysis that is returned also contains the STFT magnitude and phase spectrograms.
 
 :param file: The file name to load and analyze
 :param fft_size: The FFT size for the STFT
 :param max_num_threads: The maximum number of threads to use (if set to 0, this will be set to the maximum allowed)
 :return: A dictionary with the spectral analysis and the STFT data
 """
-def analyze(file: str, fft_size: int, max_num_threads: int) -> dict: ...
+def analyze_stft(file: str, fft_size: int, max_num_threads: int) -> dict: ...
 
 """
 Performs the real FFT on an audio array using the aus-rust crate.
