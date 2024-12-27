@@ -12,6 +12,17 @@ struct AnalysisError {
     pub msg: String
 }
 
+/// Gets the window type from a string
+fn str_to_window(window: &String) -> aus::WindowType {
+    match window.to_lowercase().as_str() {
+        "hamming" => aus::WindowType::Hamming,
+        "hanning" => aus::WindowType::Hanning,
+        "bartlett" => aus::WindowType::Bartlett,
+        "blackman" => aus::WindowType::Blackman,
+        _ => aus::WindowType::Hanning
+    }
+}
+
 /// Analyzes a magnitude spectrum
 #[pyfunction]
 fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sample_rate: u32) -> PyResult<Bound<'_, PyDict>> {
@@ -78,7 +89,7 @@ fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sampl
 
 /// Loads an audio file and analyzes it
 #[pyfunction]
-fn analyze_stft(py: Python, file: String, fft_size: usize, max_num_threads: usize) -> PyResult<Bound<'_, PyDict>> {
+fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads: usize) -> PyResult<Bound<'_, PyDict>> {
     let mut audio_file = match aus::read(&file) {
         Ok(file) => file,
         Err(err) => {
@@ -113,7 +124,10 @@ fn analyze_stft(py: Python, file: String, fft_size: usize, max_num_threads: usiz
     Ok(analysis_map)
 }
 
-/// Converts a Vector of Analysis structs to a HashMap
+/// Converts a Vector of Analysis structs to a PyDict.
+/// Each Analysis entry gets added to a vector containing all entries like it.
+/// For example, the PyDict will contain a key called "spectral_centroid" corresponding
+/// to an array of the spectral centroids.
 fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
     let arr_len: usize = analysis.analysis.len();
     let analysis_dict = PyDict::new(py);
@@ -265,8 +279,8 @@ fn irfft<'py>(py: Python<'py>, magnitude_spectrum: Vec<f64>, phase_spectrum: Vec
 
 /// Computes the real STFT using the aus library
 #[pyfunction]
-fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize) -> PyResult<(Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>, Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>)> {
-    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, fft_size /2, aus::WindowType::Hamming));
+fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize, hop_size: usize, window: String) -> PyResult<(Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>, Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>)> {
+    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, hop_size, str_to_window(&window)));
     let mut magspectrogram1: Vec<Vec<f32>> = Vec::new();
     let mut phasespectrogram1: Vec<Vec<f32>> = Vec::new();
     for i in 0..magnitude_spectrogram.len() {
@@ -292,12 +306,12 @@ fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize) -> PyResult<(Bo
 
 /// Computes the inverse real STFT using the aus library
 #[pyfunction]
-fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_spectrogram: Vec<Vec<f64>>, fft_size: usize) -> PyResult<Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 1]>>>> {
+fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_spectrogram: Vec<Vec<f64>>, fft_size: usize, hop_size: usize, window: String) -> PyResult<Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 1]>>>> {
     let imaginary_spectrogram = match aus::spectrum::polar_to_complex_rstft(&magnitude_spectrogram, &phase_spectrogram) {
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
-    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, fft_size / 2, aus::WindowType::Hamming) {
+    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, hop_size, str_to_window(&window)) {
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
@@ -312,7 +326,7 @@ fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_spec
 #[pymodule]
 fn aus_analyzer(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(analyze_rfft, m)?)?;
-    m.add_function(wrap_pyfunction!(analyze_stft, m)?)?;
+    m.add_function(wrap_pyfunction!(analyze_rstft, m)?)?;
     m.add_function(wrap_pyfunction!(rfft, m)?)?;
     m.add_function(wrap_pyfunction!(irfft, m)?)?;
     m.add_function(wrap_pyfunction!(rstft, m)?)?;

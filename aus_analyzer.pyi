@@ -20,7 +20,7 @@ The analysis that is returned also contains the STFT magnitude and phase spectro
 :param max_num_threads: The maximum number of threads to use (if set to 0, this will be set to the maximum allowed)
 :return: A dictionary with the spectral analysis and the STFT data
 """
-def analyze_stft(file: str, fft_size: int, max_num_threads: int) -> dict: ...
+def analyze_rstft(file: str, fft_size: int, max_num_threads: int) -> dict: ...
 
 """
 Performs the real FFT on an audio array using the aus-rust crate.
@@ -46,9 +46,11 @@ Performs the real STFT on an audio array using the aus-rust crate.
 
 :param audio: A 1D array of audio samples
 :param fft_size: The FFT size
+:param hop_size: The hop size
+:param window: The window type ("hanning", "hanning", "bartlett", "blackman")
 :return: A tuple with the magnitude spectrogram and the phase spectrogram
 """
-def rstft(audio: np.ndarray, fft_size: int) -> Tuple[np.ndarray, np.ndarray]: ...
+def rstft(audio: np.ndarray, fft_size: int, hop_size: int, window: str) -> Tuple[np.ndarray, np.ndarray]: ...
 
 """
 Performs the inverse real STFT on an audio array using the aus-rust crate.
@@ -56,6 +58,8 @@ Performs the inverse real STFT on an audio array using the aus-rust crate.
 :param magnitude_spectrogram: A 2D array containing the magnitude spectrogram
 :param phase_spectrogram: A 2D array containing the phase spectrogram
 :param fft_size: The FFT size
+:param hop_size: The hop size
+:param window: The window type ("hanning", "hanning", "bartlett", "blackman")
 :return: The resynthesized audio
 """
-def irstft(magnitude_spectrogram: np.ndarray, phase_spectrogram: np.ndarray, fft_size: int) -> np.ndarray: ...
+def irstft(magnitude_spectrogram: np.ndarray, phase_spectrogram: np.ndarray, fft_size: int, hop_size: int, window: str) -> np.ndarray: ...
