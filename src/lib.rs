@@ -5,7 +5,7 @@ use pyo3::types::PyDict;
 use pyo3::Bound;
 use numpy::pyo3::Python;
 use numpy::{PyArray2, IntoPyArray};
-mod analyzer;
+mod mp_analyzer;
 
 #[derive(Debug, Clone)]
 struct AnalysisError {
@@ -26,7 +26,8 @@ fn str_to_window(window: &String) -> aus::WindowType {
 /// Analyzes a magnitude spectrum
 #[pyfunction]
 fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sample_rate: u32) -> PyResult<Bound<'_, PyDict>> {
-    let analysis = aus::analysis::analyzer(&magnitude_spectrum, fft_size, sample_rate);
+    let rfft_freqs = aus::spectrum::rfftfreq(fft_size, sample_rate);
+    let analysis = aus::analysis::analyzer(&magnitude_spectrum, sample_rate, &rfft_freqs);
     let analysis_dict = PyDict::new(py);
     match analysis_dict.set_item(String::from("spectral_centroid"), analysis.spectral_centroid) {
         Ok(_) => (),
@@ -116,7 +117,7 @@ fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads: usi
         }
     };
 
-    let analysis = analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, Some(max_num_threads));
+    let analysis = mp_analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, Some(max_num_threads));
     let analysis_map = match make_analysis_map(py, analysis) {
         Ok(analysis) => analysis,
         Err(err) => return Err(PyValueError::new_err(format!("The analysis dictionary could not be created: {}", err.msg)))
@@ -128,12 +129,14 @@ fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads: usi
 /// Each Analysis entry gets added to a vector containing all entries like it.
 /// For example, the PyDict will contain a key called "spectral_centroid" corresponding
 /// to an array of the spectral centroids.
-fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
+fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
     let arr_len: usize = analysis.analysis.len();
     let analysis_dict = PyDict::new(py);
     let fft_size = analysis.magnitude_spectrogram[0].len();
     let mut magnitude_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
+    let mut mel_spectrogram: Vec<Vec<f32>> = Vec::new();
+    let mut mfccs: Vec<Vec<f32>> = Vec::new();
     let mut centroid: Vec<f32> = vec![0.0; arr_len];
     let mut variance: Vec<f32> = vec![0.0; arr_len];
     let mut skewness: Vec<f32> = vec![0.0; arr_len];
@@ -151,9 +154,13 @@ fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Result<Bou
     for i in 0..arr_len {
         let mut magnitude_spectrum = vec![0.0; fft_size];
         let mut phase_spectrum = vec![0.0; fft_size];
+        let mut mel_spectrum: Vec<f32> = Vec::new();
+        let mut mfcc_frame: Vec<f32> = Vec::new();
         for j in 0..fft_size {
             magnitude_spectrum[j] = analysis.magnitude_spectrogram[i][j] as f32;
             phase_spectrum[j] = analysis.phase_spectrogram[i][j] as f32;
+            mel_spectrum.push(analysis.mel_spectrogram[i][j] as f32);
+            mfcc_frame.push(analysis.mfccs[i][j] as f32);
         }
         centroid[i] = analysis.analysis[i].spectral_centroid as f32;
         variance[i] = analysis.analysis[i].spectral_variance as f32;
@@ -171,6 +178,8 @@ fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Result<Bou
         slope05[i] = analysis.analysis[i].spectral_slope_0_5_khz as f32;
         magnitude_spectrogram.push(magnitude_spectrum);
         phase_spectrogram.push(phase_spectrum);
+        mel_spectrogram.push(mel_spectrum);
+        mfccs.push(mfcc_frame);
     }
     match analysis_dict.set_item(String::from("magnitude_spectrogram"), match PyArray2::from_vec2(py, &magnitude_spectrogram) {
         Ok(x) => x,
@@ -180,6 +189,20 @@ fn make_analysis_map(py: Python, analysis: analyzer::StftAnalysis) -> Result<Bou
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     }
     match analysis_dict.set_item(String::from("phase_spectrogram"), match PyArray2::from_vec2(py, &phase_spectrogram) {
+        Ok(x) => x,
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    }) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    }
+    match analysis_dict.set_item(String::from("mel_spectrogram"), match PyArray2::from_vec2(py, &mel_spectrogram) {
+        Ok(x) => x,
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    }) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    }
+    match analysis_dict.set_item(String::from("mfccs"), match PyArray2::from_vec2(py, &mfccs) {
         Ok(x) => x,
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     }) {
