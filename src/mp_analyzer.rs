@@ -70,6 +70,8 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
             let mut mel_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrum[j].len());
             for k in 0..stft_magnitude_spectrum[j].len() {
                 rfft_frame.push(stft_magnitude_spectrum[j][k]);
+            }
+            for k in 0..mel_spectrogram[j].len() {
                 mel_frame.push(log_mel_spectrogram[j][k]);
             }
             local_magnitude_spectrum.push(rfft_frame);

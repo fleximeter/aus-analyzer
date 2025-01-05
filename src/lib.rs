@@ -137,6 +137,10 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
     let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mel_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mfccs: Vec<Vec<f32>> = Vec::new();
+    let mut alpha_ratio: Vec<f32> = vec![0.0; arr_len];
+    let mut hammarberg_index: Vec<f32> = vec![0.0; arr_len];
+    let mut difference: Vec<f32> = vec![0.0; arr_len];
+    let mut flux: Vec<f32> = vec![0.0; arr_len];
     let mut centroid: Vec<f32> = vec![0.0; arr_len];
     let mut variance: Vec<f32> = vec![0.0; arr_len];
     let mut skewness: Vec<f32> = vec![0.0; arr_len];
@@ -159,9 +163,15 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
         for j in 0..fft_size {
             magnitude_spectrum[j] = analysis.magnitude_spectrogram[i][j] as f32;
             phase_spectrum[j] = analysis.phase_spectrogram[i][j] as f32;
+        }
+        for j in 0..analysis.mel_spectrogram[i].len() {    
             mel_spectrum.push(analysis.mel_spectrogram[i][j] as f32);
             mfcc_frame.push(analysis.mfccs[i][j] as f32);
         }
+        alpha_ratio[i] = analysis.analysis[i].alpha_ratio as f32;
+        hammarberg_index[i] = analysis.analysis[i].hammarberg_index as f32;
+        difference[i] = analysis.analysis[i].spectral_difference as f32;
+        flux[i] = analysis.analysis[i].spectral_flux as f32;
         centroid[i] = analysis.analysis[i].spectral_centroid as f32;
         variance[i] = analysis.analysis[i].spectral_variance as f32;
         skewness[i] = analysis.analysis[i].spectral_skewness as f32;
@@ -209,6 +219,22 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
         Ok(_) => (),
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     }
+    match analysis_dict.set_item(String::from("alpha_ratio"), alpha_ratio.into_pyarray(py).to_owned()) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    };
+    match analysis_dict.set_item(String::from("hammarberg_index"), hammarberg_index.into_pyarray(py).to_owned()) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    };
+    match analysis_dict.set_item(String::from("spectral_difference"), difference.into_pyarray(py).to_owned()) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    };
+    match analysis_dict.set_item(String::from("spectral_flux"), flux.into_pyarray(py).to_owned()) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    };
     match analysis_dict.set_item(String::from("spectral_centroid"), centroid.into_pyarray(py).to_owned()) {
         Ok(_) => (),
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
