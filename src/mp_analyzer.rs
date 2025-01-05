@@ -76,6 +76,16 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
             local_log_mel_spectrum.push(mel_frame);
         }
 
+        let prev_spectrum = if start_idx > 0 {
+            let mut spec: Vec<f64> = vec![0.0; stft_magnitude_spectrum[start_idx-1].len()];
+            for j in 0..stft_magnitude_spectrum[start_idx-1].len() {
+                spec[j] = stft_magnitude_spectrum[start_idx-1][j];
+            }
+            Some(spec)
+        } else {
+            None
+        };
+
         // Start the thread
         pool.execute(move || {
             let mut analyses: Vec<Analysis> = Vec::with_capacity(local_magnitude_spectrum.len());
@@ -83,7 +93,13 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
             
             // Perform the analyses
             for j in 0..local_magnitude_spectrum.len() {
-                analyses.push(analyzer(&local_magnitude_spectrum[j], local_sample_rate, &local_rfft_freqs));
+                match &prev_spectrum {
+                    Some(spec) => {
+                        analyses.push(analyzer(&local_magnitude_spectrum[j], Some(&spec), local_sample_rate, &local_rfft_freqs));
+                    }, None => {
+                        analyses.push(analyzer(&local_magnitude_spectrum[j], None, local_sample_rate, &local_rfft_freqs));
+                    }
+                }
                 mfccs.push(analysis::mel::mfcc(&local_log_mel_spectrum[j], 2.0));
             }
 

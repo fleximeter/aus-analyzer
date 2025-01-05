@@ -27,7 +27,7 @@ fn str_to_window(window: &String) -> aus::WindowType {
 #[pyfunction]
 fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sample_rate: u32) -> PyResult<Bound<'_, PyDict>> {
     let rfft_freqs = aus::spectrum::rfftfreq(fft_size, sample_rate);
-    let analysis = aus::analysis::analyzer(&magnitude_spectrum, sample_rate, &rfft_freqs);
+    let analysis = aus::analysis::analyzer(&magnitude_spectrum, None, sample_rate, &rfft_freqs);
     let analysis_dict = PyDict::new(py);
     match analysis_dict.set_item(String::from("spectral_centroid"), analysis.spectral_centroid) {
         Ok(_) => (),
