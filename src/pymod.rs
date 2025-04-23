@@ -7,6 +7,7 @@ use numpy::pyo3::Python;
 use numpy::{PyArray2, IntoPyArray};
 use crate::mp_analyzer;
 use crate::AnalysisError;
+use crate::frame;
 
 /// A module for working with spectral analysis and synthesis in Rust.
 #[pymodule]
@@ -21,7 +22,7 @@ pub fn aus_analyzer(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Gets the window type from a string
-fn str_to_window(window: &String) -> aus::WindowType {
+fn str_to_window_type(window: &String) -> aus::WindowType {
     match window.to_lowercase().as_str() {
         "hamming" => aus::WindowType::Hamming,
         "hanning" => aus::WindowType::Hanning,
@@ -29,6 +30,74 @@ fn str_to_window(window: &String) -> aus::WindowType {
         "blackman" => aus::WindowType::Blackman,
         _ => aus::WindowType::Hanning
     }
+}
+
+/// Analyzes an audio chunk
+#[pyfunction]
+pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: bool) -> PyResult<Bound<'_, PyDict>> {
+    let analysis = match frame::analyze(&audio, sample_rate, analyze_f0) {
+        Ok(a) => a,
+        Err(err) => return Err(PyValueError::new_err(err.msg))
+    };
+    let analysis_dict = PyDict::new(py);
+    match analysis_dict.set_item(String::from("spectral_centroid"), analysis.spectral_centroid) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral centroid could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_variance"), analysis.spectral_variance) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral variance could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_skewness"), analysis.spectral_skewness) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral skewness could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_kurtosis"), analysis.spectral_kurtosis) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral kurtosis could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_entropy"), analysis.spectral_entropy) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral entropy could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_flatness"), analysis.spectral_flatness) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral flatness could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_roll_off_50"), analysis.spectral_rolloff_50) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 50 could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_roll_off_75"), analysis.spectral_rolloff_75) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 75 could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_roll_off_90"), analysis.spectral_rolloff_90) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 90 could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_roll_off_95"), analysis.spectral_rolloff_95) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 95 could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_slope"), analysis.spectral_slope) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral slope could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_slope_0_1_khz"), analysis.spectral_slope_01khz) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 0-1kHz could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_slope_1_5_khz"), analysis.spectral_slope_15khz) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 1-5kHz could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_slope_0_5_khz"), analysis.spectral_slope_05khz) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 0-5kHz could not be added to the analysis dictionary: {}", err)))
+    };
+    unimplemented!("The dictionary doesn't yet include all of the struct values.");
+    Ok(analysis_dict)
 }
 
 /// Analyzes a magnitude spectrum
@@ -337,7 +406,7 @@ pub fn irfft<'py>(py: Python<'py>, magnitude_spectrum: Vec<f64>, phase_spectrum:
 /// Computes the real STFT using the aus library
 #[pyfunction]
 pub fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize, hop_size: usize, window: String) -> PyResult<(Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>, Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>)> {
-    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, hop_size, str_to_window(&window)));
+    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, hop_size, str_to_window_type(&window)));
     let mut magspectrogram1: Vec<Vec<f32>> = Vec::new();
     let mut phasespectrogram1: Vec<Vec<f32>> = Vec::new();
     for i in 0..magnitude_spectrogram.len() {
@@ -368,7 +437,7 @@ pub fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
-    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, hop_size, str_to_window(&window)) {
+    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, hop_size, str_to_window_type(&window)) {
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
