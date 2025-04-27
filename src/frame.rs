@@ -86,8 +86,10 @@ pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<F
         Ok(autocor) => autocor,
         Err(err) => return Err(AnalysisError { msg: err.error_msg })
     };
-    let mel_spectrum = analysis::mel::make_mel_spectrum(&power_spectrum, analysis::mel::freq_to_mel(20.0), analysis::mel::freq_to_mel(8000.0), 26, &rfft_freqs);
-    let log_spectrum: Vec<f64> = analysis::make_log_spectrum(&mel_spectrum.0, 10e-8);
+
+    let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
+    let mel_spectrum = analysis::mel::make_mel_spectrum(&power_spectrum, &mel_filterbank);
+    let log_spectrum: Vec<f64> = analysis::make_log_spectrum(&mel_spectrum, 10e-8);
     let mfccs = analysis::mel::mfcc(&log_spectrum, 2.0); // then use indices 11-15
     
     // optionally produce fundamental frequency

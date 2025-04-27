@@ -39,8 +39,9 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     let (stft_magnitude_spectrum, stft_phase_spectrum) = spectrum::complex_to_polar_rstft(&stft_imaginary_spectrum);
     let stft_power_spectrum = analysis::make_power_spectrogram(&stft_magnitude_spectrum);
     let rfft_freqs = spectrum::rfftfreq(fft_size, sample_rate);
-    let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrum, analysis::mel::freq_to_mel(20.0), analysis::mel::freq_to_mel(8000.0), 26, &rfft_freqs);
-    let log_mel_spectrogram = analysis::make_log_spectrogram(&mel_spectrogram.0, 10e-8);
+    let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
+    let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrum, &mel_filterbank);
+    let log_mel_spectrogram = analysis::make_log_spectrogram(&mel_spectrogram, 10e-8);
     
     // Set up the multithreading
     let (tx, rx) = mpsc::channel();  // the message passing channel
@@ -71,7 +72,7 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
             for k in 0..stft_magnitude_spectrum[j].len() {
                 rfft_frame.push(stft_magnitude_spectrum[j][k]);
             }
-            for k in 0..mel_spectrogram.0[j].len() {
+            for k in 0..mel_spectrogram[j].len() {
                 mel_frame.push(log_mel_spectrogram[j][k]);
             }
             local_magnitude_spectrum.push(rfft_frame);
@@ -141,7 +142,7 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     StftAnalysis {
         magnitude_spectrogram: stft_magnitude_spectrum,
         phase_spectrogram: stft_phase_spectrum,
-        mel_spectrogram: mel_spectrogram.0,
+        mel_spectrogram: mel_spectrogram,
         mfccs: mfccs,
         analysis: analyses
     }

@@ -40,21 +40,37 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
         Err(err) => return Err(PyValueError::new_err(err.msg))
     };
     let analysis_dict = PyDict::new(py);
+    match analysis_dict.set_item(String::from("alpha_ratio"), analysis.alpha_ratio) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The alpha ratio could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("autocorrelation"), analysis.autocorrelation) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The autocorrelation could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("f0_estimation"), analysis.f0_estimation) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The f0 estimation could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("hammarberg_index"), analysis.hammarberg_index) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The hammarberg index could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("harmonicity"), analysis.harmonicity) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The harmonicity could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("mfccs"), analysis.mfccs) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The MFCCs could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("power_spectrum"), analysis.power_spectrum) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The power spectrum could not be added to the analysis dictionary: {}", err)))
+    };
     match analysis_dict.set_item(String::from("spectral_centroid"), analysis.spectral_centroid) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral centroid could not be added to the analysis dictionary: {}", err)))
-    };
-    match analysis_dict.set_item(String::from("spectral_variance"), analysis.spectral_variance) {
-        Ok(_) => (),
-        Err(err) => return Err(PyValueError::new_err(format!("The spectral variance could not be added to the analysis dictionary: {}", err)))
-    };
-    match analysis_dict.set_item(String::from("spectral_skewness"), analysis.spectral_skewness) {
-        Ok(_) => (),
-        Err(err) => return Err(PyValueError::new_err(format!("The spectral skewness could not be added to the analysis dictionary: {}", err)))
-    };
-    match analysis_dict.set_item(String::from("spectral_kurtosis"), analysis.spectral_kurtosis) {
-        Ok(_) => (),
-        Err(err) => return Err(PyValueError::new_err(format!("The spectral kurtosis could not be added to the analysis dictionary: {}", err)))
     };
     match analysis_dict.set_item(String::from("spectral_entropy"), analysis.spectral_entropy) {
         Ok(_) => (),
@@ -63,6 +79,10 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
     match analysis_dict.set_item(String::from("spectral_flatness"), analysis.spectral_flatness) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral flatness could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("spectral_kurtosis"), analysis.spectral_kurtosis) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral kurtosis could not be added to the analysis dictionary: {}", err)))
     };
     match analysis_dict.set_item(String::from("spectral_roll_off_50"), analysis.spectral_rolloff_50) {
         Ok(_) => (),
@@ -80,6 +100,10 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 95 could not be added to the analysis dictionary: {}", err)))
     };
+    match analysis_dict.set_item(String::from("spectral_skewness"), analysis.spectral_skewness) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral skewness could not be added to the analysis dictionary: {}", err)))
+    };
     match analysis_dict.set_item(String::from("spectral_slope"), analysis.spectral_slope) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope could not be added to the analysis dictionary: {}", err)))
@@ -96,7 +120,14 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 0-5kHz could not be added to the analysis dictionary: {}", err)))
     };
-    unimplemented!("The dictionary doesn't yet include all of the struct values.");
+    match analysis_dict.set_item(String::from("spectral_variance"), analysis.spectral_variance) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The spectral variance could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("zero_crossing_rate"), analysis.zero_crossing_rate) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The zero crossing rate could not be added to the analysis dictionary: {}", err)))
+    };
     Ok(analysis_dict)
 }
 
