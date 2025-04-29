@@ -88,7 +88,7 @@ pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<F
     };
 
     let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
-    let mel_spectrum = analysis::mel::make_mel_spectrum(&power_spectrum, &mel_filterbank);
+    let mel_spectrum = mel_filterbank.filter(&power_spectrum);
     let log_spectrum: Vec<f64> = analysis::make_log_spectrum(&mel_spectrum, 10e-8);
     let mfccs = analysis::mel::mfcc(&log_spectrum, 2.0); // then use indices 11-15
     

@@ -1,6 +1,23 @@
 import numpy as np
 from typing import Tuple
 
+def analyze_frame(audio: np.ndarray, sample_rate: int, analyze_f0: bool) -> dict:
+    """
+    Analyzes an audio frame using the `aus-rust` crate. Returns an analysis
+    dictionary with analysis features. 
+
+    Parameters
+    ----------
+    :param audio: An array of audio samples to featurize
+    :param sample_rate: The audio sample rate
+    :param analyze_f0: Whether or not to compute the fundamental frequency analysis (using pYin)
+
+    Returns
+    -------
+    :return: A dictionary with the analysis
+    """
+    ...
+
 def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int) -> dict:
     """
     Analyzes a real FFT frame using the `aus-rust` crate. Returns an analysis

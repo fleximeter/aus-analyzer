@@ -12,6 +12,7 @@ use crate::frame;
 /// A module for working with spectral analysis and synthesis in Rust.
 #[pymodule]
 pub fn aus_analyzer(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(analyze_frame, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_rfft, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_rstft, m)?)?;
     m.add_function(wrap_pyfunction!(rfft, m)?)?;
