@@ -239,44 +239,56 @@ pub fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads:
 /// For example, the PyDict will contain a key called "spectral_centroid" corresponding
 /// to an array of the spectral centroids.
 fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
-    let arr_len: usize = analysis.analysis.len();
+    let num_analysis_frames: usize = analysis.analysis.len();
     let analysis_dict = PyDict::new(py);
     let fft_size = analysis.magnitude_spectrogram[0].len();
     let mut magnitude_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mel_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mfccs: Vec<Vec<f32>> = Vec::new();
-    let mut alpha_ratio: Vec<f32> = vec![0.0; arr_len];
-    let mut hammarberg_index: Vec<f32> = vec![0.0; arr_len];
-    let mut difference: Vec<f32> = vec![0.0; arr_len];
-    let mut flux: Vec<f32> = vec![0.0; arr_len];
-    let mut centroid: Vec<f32> = vec![0.0; arr_len];
-    let mut variance: Vec<f32> = vec![0.0; arr_len];
-    let mut skewness: Vec<f32> = vec![0.0; arr_len];
-    let mut kurtosis: Vec<f32> = vec![0.0; arr_len];
-    let mut entropy: Vec<f32> = vec![0.0; arr_len];
-    let mut flatness: Vec<f32> = vec![0.0; arr_len];
-    let mut roll_50: Vec<f32> = vec![0.0; arr_len];
-    let mut roll_75: Vec<f32> = vec![0.0; arr_len];
-    let mut roll_90: Vec<f32> = vec![0.0; arr_len];
-    let mut roll_95: Vec<f32> = vec![0.0; arr_len];
-    let mut slope: Vec<f32> = vec![0.0; arr_len];
-    let mut slope01: Vec<f32> = vec![0.0; arr_len];
-    let mut slope15: Vec<f32> = vec![0.0; arr_len];
-    let mut slope05: Vec<f32> = vec![0.0; arr_len];
-    for i in 0..arr_len {
-        let mut magnitude_spectrum = vec![0.0; fft_size];
-        let mut phase_spectrum = vec![0.0; fft_size];
-        let mut mel_spectrum: Vec<f32> = Vec::new();
-        let mut mfcc_frame: Vec<f32> = Vec::new();
-        for j in 0..fft_size {
-            magnitude_spectrum[j] = analysis.magnitude_spectrogram[i][j] as f32;
-            phase_spectrum[j] = analysis.phase_spectrogram[i][j] as f32;
+    let mut alpha_ratio: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut hammarberg_index: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut difference: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut flux: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut centroid: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut variance: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut skewness: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut kurtosis: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut entropy: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut flatness: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut roll_50: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut roll_75: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut roll_90: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut roll_95: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut slope: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut slope01: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut slope15: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut slope05: Vec<f32> = vec![0.0; num_analysis_frames];
+    for i in 0..analysis.magnitude_spectrogram.len() {
+        let mut magnitude_spectrum: Vec<f32> = Vec::with_capacity(analysis.magnitude_spectrogram[i].len());
+        let mut phase_spectrum: Vec<f32> = Vec::with_capacity(analysis.phase_spectrogram[i].len());
+        for j in 0..analysis.magnitude_spectrogram[i].len() {
+            magnitude_spectrum.push(analysis.magnitude_spectrogram[i][j] as f32);
+            phase_spectrum.push(analysis.phase_spectrogram[i][j] as f32);
         }
-        for j in 0..analysis.mel_spectrogram[i].len() {    
+        magnitude_spectrogram.push(magnitude_spectrum);
+        phase_spectrogram.push(phase_spectrum);
+    }
+    for i in 0..analysis.mel_spectrogram.len() {
+        let mut mel_spectrum: Vec<f32> = Vec::with_capacity(analysis.mel_spectrogram[i].len());        
+        for j in 0..analysis.mel_spectrogram[i].len() {
             mel_spectrum.push(analysis.mel_spectrogram[i][j] as f32);
+        }
+        mel_spectrogram.push(mel_spectrum);
+    }
+    for i in 0..analysis.mfccs.len() {
+        let mut mfcc_frame: Vec<f32> = Vec::with_capacity(analysis.mfccs[i].len());        
+        for j in 0..analysis.mfccs[i].len() {
             mfcc_frame.push(analysis.mfccs[i][j] as f32);
         }
+        mfccs.push(mfcc_frame);
+    }
+    for i in 0..num_analysis_frames {
         alpha_ratio[i] = analysis.analysis[i].alpha_ratio as f32;
         hammarberg_index[i] = analysis.analysis[i].hammarberg_index as f32;
         difference[i] = analysis.analysis[i].spectral_difference as f32;
@@ -295,10 +307,6 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
         slope01[i] = analysis.analysis[i].spectral_slope_0_1_khz as f32;
         slope15[i] = analysis.analysis[i].spectral_slope_1_5_khz as f32;
         slope05[i] = analysis.analysis[i].spectral_slope_0_5_khz as f32;
-        magnitude_spectrogram.push(magnitude_spectrum);
-        phase_spectrogram.push(phase_spectrum);
-        mel_spectrogram.push(mel_spectrum);
-        mfccs.push(mfcc_frame);
     }
     match analysis_dict.set_item(String::from("magnitude_spectrogram"), match PyArray2::from_vec2(py, &magnitude_spectrogram) {
         Ok(x) => x,

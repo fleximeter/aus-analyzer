@@ -137,12 +137,49 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         }
     }
 
+    // Rotate the spectral vectors to comply with typical SciPy layout
+    let mut magnitude_spectrogram1: Vec<Vec<f64>> = Vec::new();
+    let mut phase_spectrogram1: Vec<Vec<f64>> = Vec::new();
+    let mut mel_spectrogram1: Vec<Vec<f64>> = Vec::new();
+    let mut mfccs1: Vec<Vec<f64>> = Vec::new();
+
+    // Rotate the STFT data
+    for j in 0..stft_magnitude_spectrum[0].len() {
+        let mut rotated_mag_spectral_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrum.len());
+        let mut rotated_phase_spectral_frame: Vec<f64> = Vec::with_capacity(stft_phase_spectrum.len());
+        for i in 0..stft_magnitude_spectrum.len() {
+            rotated_mag_spectral_frame.push(stft_magnitude_spectrum[i][j]);
+            rotated_phase_spectral_frame.push(stft_phase_spectrum[i][j]);
+
+        }
+        magnitude_spectrogram1.push(rotated_mag_spectral_frame);
+        phase_spectrogram1.push(rotated_phase_spectral_frame);
+    }
+
+    // Rotate the Mel spectrum
+    for j in 0..mel_spectrogram[0].len() {
+        let mut rotated_spectral_frame: Vec<f64> = Vec::with_capacity(mel_spectrogram.len());
+        for i in 0..mel_spectrogram.len() {
+            rotated_spectral_frame.push(mel_spectrogram[i][j]);
+        }
+        mel_spectrogram1.push(rotated_spectral_frame);
+    }
+
+    // Rotate the MFCCs
+    for j in 0..mfccs[0].len() {
+        let mut rotated_spectral_frame: Vec<f64> = Vec::with_capacity(mfccs.len());
+        for i in 0..mfccs.len() {
+            rotated_spectral_frame.push(mfccs[i][j]);
+        }
+        mfccs1.push(rotated_spectral_frame);
+    }
+
     // Return the final analysis package
     StftAnalysis {
-        magnitude_spectrogram: stft_magnitude_spectrum,
-        phase_spectrogram: stft_phase_spectrum,
-        mel_spectrogram: mel_spectrogram,
-        mfccs: mfccs,
+        magnitude_spectrogram: magnitude_spectrogram1,
+        phase_spectrogram: phase_spectrogram1,
+        mel_spectrogram: mel_spectrogram1,
+        mfccs: mfccs1,
         analysis: analyses
     }
 }
