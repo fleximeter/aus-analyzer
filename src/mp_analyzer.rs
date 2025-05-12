@@ -41,7 +41,6 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     let rfft_freqs = spectrum::rfftfreq(fft_size, sample_rate);
     let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
     let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrum, &mel_filterbank);
-    let log_mel_spectrogram = analysis::make_log_spectrogram(&mel_spectrogram, 10e-8);
     
     // Set up the multithreading
     let (tx, rx) = mpsc::channel();  // the message passing channel
@@ -63,7 +62,7 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         
         // Copy the fragment of the magnitude spectrum for this thread
         let mut local_magnitude_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
-        let mut local_log_mel_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
+        let mut local_mel_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
         let start_idx = i * num_frames_per_thread;
         let end_idx = usize::min(start_idx + num_frames_per_thread, stft_magnitude_spectrum.len());
         for j in start_idx..end_idx {
@@ -73,10 +72,10 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
                 rfft_frame.push(stft_magnitude_spectrum[j][k]);
             }
             for k in 0..mel_spectrogram[j].len() {
-                mel_frame.push(log_mel_spectrogram[j][k]);
+                mel_frame.push(mel_spectrogram[j][k]);
             }
             local_magnitude_spectrum.push(rfft_frame);
-            local_log_mel_spectrum.push(mel_frame);
+            local_mel_spectrum.push(mel_frame);
         }
 
         let prev_spectrum = if start_idx > 0 {
@@ -91,8 +90,8 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
 
         // Start the thread
         pool.execute(move || {
-            let mut analyses: Vec<Analysis> = Vec::with_capacity(local_magnitude_spectrum.len());
-            let mut mfccs: Vec<Vec<f64>> = Vec::with_capacity(local_magnitude_spectrum.len());
+            let mut analyses: Vec<Analysis> = Vec::new();
+            let mut mfccs: Vec<Vec<f64>> = Vec::new();
             
             // Perform the analyses
             for j in 0..local_magnitude_spectrum.len() {
@@ -103,7 +102,7 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
                         analyses.push(analyzer(&local_magnitude_spectrum[j], None, local_sample_rate, &local_rfft_freqs));
                     }
                 }
-                mfccs.push(analysis::mel::mfcc(&local_log_mel_spectrum[j], 2.0));
+                mfccs.push(analysis::mel::mfcc_spectrum(&local_mel_spectrum[j], 2.0));
             }
 
             let _ = match tx_clone.send((thread_idx, analyses, mfccs)) {

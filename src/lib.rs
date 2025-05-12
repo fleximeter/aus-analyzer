@@ -7,6 +7,6 @@ pub use pymod::*;
 pub use frame::*;
 
 #[derive(Debug, Clone)]
-struct AnalysisError {
+pub struct AnalysisError {
     pub msg: String
 }

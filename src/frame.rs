@@ -15,6 +15,7 @@ pub struct FrameAnalysis {
     pub f0_estimation: Option<f64>,
     pub hammarberg_index: f64,
     pub harmonicity: f64,
+    pub mel_spectrum: Vec<f64>,
     pub mfccs: Vec<f64>,
     pub power_spectrum: Vec<f64>,
     pub spectral_centroid: f64,
@@ -42,7 +43,7 @@ pub struct FrameAnalysis {
 /// The fundamental frequency analysis in this package uses the pYin algorithm,
 /// which adds a significant time penalty to the analysis process.
 /// Because of this, you can specify not to analyze the fundamental frequency (`analyze_f0`).
-pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<FrameAnalysis, AnalysisError> {
+pub fn analyze(audio: &[f64], sample_rate: u32, analyze_f0: bool) -> Result<FrameAnalysis, AnalysisError> {
     // handle error cases
     if audio.len() > MAX_FRAME_SIZE {
         return Err(AnalysisError { msg: String::from("Cannot analyze audio chunks larger than 32,768 frames.") });
@@ -87,10 +88,9 @@ pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<F
         Err(err) => return Err(AnalysisError { msg: err.error_msg })
     };
 
-    let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
+    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, 128, &rfft_freqs, false, true);
     let mel_spectrum = mel_filterbank.filter(&power_spectrum);
-    let log_spectrum: Vec<f64> = analysis::make_log_spectrum(&mel_spectrum, 10e-8);
-    let mfccs = analysis::mel::mfcc(&log_spectrum, 2.0); // then use indices 11-15
+    let mfccs = analysis::mel::mfcc_spectrum(&mel_spectrum, 2.0);
     
     // optionally produce fundamental frequency
     let f0 = match analyze_f0 {
@@ -107,6 +107,7 @@ pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<F
         f0_estimation: f0,
         hammarberg_index: hammarberg_index,
         harmonicity: harmonicity,
+        mel_spectrum: mel_spectrum,
         mfccs: mfccs,
         power_spectrum: power_spectrum,
         spectral_centroid: analysis_spectral_centroid,
@@ -125,4 +126,17 @@ pub fn analyze(audio: &Vec<f64>, sample_rate: u32, analyze_f0: bool) -> Result<F
         spectral_variance: analysis_spectral_variance,
         zero_crossing_rate: zcr
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aus;
+
+    #[test]
+    fn test_frame_analysis() {
+        let path = "D:\\Recording\\compress.wav";
+        let af = aus::read(path).unwrap();
+        let _ = analyze(&af.samples[0][44100..44100+2048], af.sample_rate, false);
+    }
 }
