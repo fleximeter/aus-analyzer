@@ -19,7 +19,7 @@ pub struct StftAnalysis {
 /// Performs a STFT analysis on an audio file. This is a modified version
 /// of the analyzer included in aus::mp. It is modified to also produce
 /// the STFT data.
-pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u32, max_num_threads: Option<usize>) -> StftAnalysis {
+pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u32, num_mels: usize, num_mfccs: usize, max_num_threads: Option<usize>) -> StftAnalysis {
     let max_available_threads = match std::thread::available_parallelism() {
         Ok(x) => x.get(),
         Err(_) => 1
@@ -39,9 +39,10 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     let (stft_magnitude_spectrum, stft_phase_spectrum) = spectrum::complex_to_polar_rstft(&stft_imaginary_spectrum);
     let stft_power_spectrum = analysis::make_power_spectrogram(&stft_magnitude_spectrum);
     let rfft_freqs = spectrum::rfftfreq(fft_size, sample_rate);
-    let mel_filterbank = analysis::mel::MelFilterbank::new(20.0, 8000.0, 40, &rfft_freqs, true, true);
+    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, num_mels, &rfft_freqs, true, true);
     let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrum, &mel_filterbank);
-    
+    let mfccs = analysis::mel::mfcc_spectrogram(&mel_spectrogram, 2.0);
+
     // Set up the multithreading
     let (tx, rx) = mpsc::channel();  // the message passing channel
 
@@ -58,7 +59,7 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         let tx_clone = tx.clone();
         let thread_idx = i;
         let local_rfft_freqs = rfft_freqs.clone();
-        let local_sample_rate = sample_rate;
+        // let local_sample_rate = sample_rate;
         
         // Copy the fragment of the magnitude spectrum for this thread
         let mut local_magnitude_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
@@ -91,21 +92,19 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         // Start the thread
         pool.execute(move || {
             let mut analyses: Vec<Analysis> = Vec::new();
-            let mut mfccs: Vec<Vec<f64>> = Vec::new();
             
             // Perform the analyses
             for j in 0..local_magnitude_spectrum.len() {
                 match &prev_spectrum {
                     Some(spec) => {
-                        analyses.push(analyzer(&local_magnitude_spectrum[j], Some(&spec), local_sample_rate, &local_rfft_freqs));
+                        analyses.push(analyzer(&local_magnitude_spectrum[j], Some(&spec), sample_rate, &local_rfft_freqs));
                     }, None => {
-                        analyses.push(analyzer(&local_magnitude_spectrum[j], None, local_sample_rate, &local_rfft_freqs));
+                        analyses.push(analyzer(&local_magnitude_spectrum[j], None, sample_rate, &local_rfft_freqs));
                     }
                 }
-                mfccs.push(analysis::mel::mfcc_spectrum(&local_mel_spectrum[j], 2.0));
             }
 
-            let _ = match tx_clone.send((thread_idx, analyses, mfccs)) {
+            let _ = match tx_clone.send((thread_idx, analyses)) {
                 Ok(x) => x,
                 Err(_) => ()
             };
@@ -120,20 +119,16 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     for received_data in rx {
         results.push(received_data);
     }
-    results.sort_by_key(|&(index, _, _)| index);
+    results.sort_by_key(|&(index, _)| index);
     
     // let all threads wrap up
     pool.join();
 
     // Combine the analysis vectors into one big vector
     let mut analyses: Vec<Analysis> = Vec::new();
-    let mut mfccs: Vec<Vec<f64>> = Vec::new();
     for i in 0..results.len() {
         for j in 0..results[i].1.len() {
             analyses.push(results[i].1[j]);
-            for k in 0..results[i].2.len() {
-                mfccs.push(results[i].2[k].clone());
-            }
         }
     }
 
@@ -165,8 +160,9 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         mel_spectrogram1.push(rotated_spectral_frame);
     }
 
-    // Rotate the MFCCs
-    for j in 0..mfccs[0].len() {
+    // Rotate the MFCCs and only include the number asked for
+    let mfcc_len = if num_mfccs < mfccs[0].len() {num_mfccs} else {mfccs[0].len()};
+    for j in 0..mfcc_len {
         let mut rotated_spectral_frame: Vec<f64> = Vec::with_capacity(mfccs.len());
         for i in 0..mfccs.len() {
             rotated_spectral_frame.push(mfccs[i][j]);

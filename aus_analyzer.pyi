@@ -35,7 +35,7 @@ def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int
     """
     ...
 
-def analyze_rstft(file: str, fft_size: int, max_num_threads: int) -> dict:
+def analyze_rstft(file: str, fft_size: int, num_mels: int = 128, num_mfccs: int = 20, max_num_threads: int = 4) -> dict:
     """
     Analyzes an audio file using the `aus-rust` crate.
     Loads the audio file, runs the STFT, and extracts spectral features.
@@ -47,6 +47,8 @@ def analyze_rstft(file: str, fft_size: int, max_num_threads: int) -> dict:
     ----------
     :param file: The file name to load and analyze
     :param fft_size: The FFT size for the STFT
+    :param num_mels: The number of Mels in the Mel spectrogram
+    :param num_mfccs: The number of MFCCs
     :param max_num_threads: The maximum number of threads to use (if set to 0, this will be set to the maximum allowed)
 
     Returns
@@ -89,7 +91,7 @@ def irfft(magnitude_spectrum: np.ndarray, phase_spectrum: np.ndarray, fft_size: 
     """
     ...
 
-def rstft(audio: np.ndarray, fft_size: int, hop_size: int, window: str) -> Tuple[np.ndarray, np.ndarray]:
+def rstft(audio: np.ndarray, fft_size: int, hop_size: int, window: str = "hanning") -> Tuple[np.ndarray, np.ndarray]:
     """
     Performs the real STFT on an audio array using the aus-rust crate. The STFT is performed
     using `rustfft`. For efficiency, this function also decomposes
@@ -108,7 +110,7 @@ def rstft(audio: np.ndarray, fft_size: int, hop_size: int, window: str) -> Tuple
     """
     ...
 
-def irstft(magnitude_spectrogram: np.ndarray, phase_spectrogram: np.ndarray, fft_size: int, hop_size: int, window: str) -> np.ndarray:
+def irstft(magnitude_spectrogram: np.ndarray, phase_spectrogram: np.ndarray, fft_size: int, hop_size: int, window: str = "hanning") -> np.ndarray:
     """
     Performs the inverse real STFT on an audio array using the aus-rust crate. The ISTFT is performed
     using `rustfft`.

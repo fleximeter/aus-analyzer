@@ -23,7 +23,7 @@ pub fn aus_analyzer(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Gets the window type from a string
-fn str_to_window_type(window: &String) -> aus::WindowType {
+fn str_to_window_type(window: &str) -> aus::WindowType {
     match window.to_lowercase().as_str() {
         "hamming" => aus::WindowType::Hamming,
         "hanning" => aus::WindowType::Hanning,
@@ -199,7 +199,8 @@ pub fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, s
 
 /// Loads an audio file and analyzes it
 #[pyfunction]
-pub fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads: usize) -> PyResult<Bound<'_, PyDict>> {
+#[pyo3(signature = (file, fft_size, num_mels=128, num_mfccs=20, max_num_threads=4))]
+pub fn analyze_rstft(py: Python, file: String, fft_size: usize, num_mels: usize, num_mfccs: usize, max_num_threads: usize) -> PyResult<Bound<'_, PyDict>> {
     let mut audio_file = match aus::read(&file) {
         Ok(file) => file,
         Err(err) => {
@@ -226,7 +227,7 @@ pub fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads:
         }
     };
 
-    let analysis = mp_analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, Some(max_num_threads));
+    let analysis = mp_analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, num_mels, num_mfccs, Some(max_num_threads));
     let analysis_map = match make_analysis_map(py, analysis) {
         Ok(analysis) => analysis,
         Err(err) => return Err(PyValueError::new_err(format!("The analysis dictionary could not be created: {}", err.msg)))
@@ -241,7 +242,6 @@ pub fn analyze_rstft(py: Python, file: String, fft_size: usize, max_num_threads:
 fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
     let num_analysis_frames: usize = analysis.analysis.len();
     let analysis_dict = PyDict::new(py);
-    let fft_size = analysis.magnitude_spectrogram[0].len();
     let mut magnitude_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mel_spectrogram: Vec<Vec<f32>> = Vec::new();
@@ -445,8 +445,9 @@ pub fn irfft<'py>(py: Python<'py>, magnitude_spectrum: Vec<f64>, phase_spectrum:
 
 /// Computes the real STFT using the aus library
 #[pyfunction]
-pub fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize, hop_size: usize, window: String) -> PyResult<(Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>, Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>)> {
-    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, hop_size, str_to_window_type(&window)));
+#[pyo3(signature = (audio, fft_size, hop_size, window="hanning"))]
+pub fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize, hop_size: usize, window: &str) -> PyResult<(Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>, Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 2]>>>)> {
+    let (magnitude_spectrogram, phase_spectrogram) = aus::spectrum::complex_to_polar_rstft(&aus::spectrum::rstft(&audio, fft_size, hop_size, str_to_window_type(window)));
     let mut magspectrogram1: Vec<Vec<f32>> = Vec::new();
     let mut phasespectrogram1: Vec<Vec<f32>> = Vec::new();
     for i in 0..magnitude_spectrogram.len() {
@@ -472,12 +473,13 @@ pub fn rstft<'py>(py: Python<'py>, audio: Vec<f64>, fft_size: usize, hop_size: u
 
 /// Computes the inverse real STFT using the aus library
 #[pyfunction]
-pub fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_spectrogram: Vec<Vec<f64>>, fft_size: usize, hop_size: usize, window: String) -> PyResult<Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 1]>>>> {
+#[pyo3(signature = (magnitude_spectrogram, phase_spectrogram, fft_size, hop_size, window="hanning"))]
+pub fn irstft<'py>(py: Python<'py>, magnitude_spectrogram: Vec<Vec<f64>>, phase_spectrogram: Vec<Vec<f64>>, fft_size: usize, hop_size: usize, window: &str) -> PyResult<Bound<'py, numpy::PyArray<f32, numpy::ndarray::Dim<[usize; 1]>>>> {
     let imaginary_spectrogram = match aus::spectrum::polar_to_complex_rstft(&magnitude_spectrogram, &phase_spectrogram) {
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
-    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, hop_size, str_to_window_type(&window)) {
+    let audio = match aus::spectrum::irstft(&imaginary_spectrogram, fft_size, hop_size, str_to_window_type(window)) {
         Ok(x) => x,
         Err(err) => return Err(PyValueError::new_err(format!("Could not perform the inverse rSTFT: {}", err.error_msg)))
     };
