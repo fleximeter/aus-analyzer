@@ -88,9 +88,9 @@ pub fn analyze(audio: &[f64], sample_rate: u32, analyze_f0: bool) -> Result<Fram
         Err(err) => return Err(AnalysisError { msg: err.error_msg })
     };
 
-    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, 128, &rfft_freqs, false, true);
+    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, 128, &rfft_freqs, true);
     let mel_spectrum = mel_filterbank.filter(&power_spectrum);
-    let mfccs = analysis::mel::mfcc_spectrum(&mel_spectrum, 2.0);
+    let mfccs = analysis::mel::mfcc_spectrum(&mel_spectrum, 0.0);
     
     // optionally produce fundamental frequency
     let f0 = match analyze_f0 {

@@ -35,20 +35,20 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         None => max_available_threads
     };
 
-    let stft_imaginary_spectrum: Vec<Vec<Complex<f64>>> = mp::rstft(audio, fft_size, fft_size / 2, aus::WindowType::Hamming, max_num_threads);
-    let (stft_magnitude_spectrum, stft_phase_spectrum) = spectrum::complex_to_polar_rstft(&stft_imaginary_spectrum);
-    let stft_power_spectrum = analysis::make_power_spectrogram(&stft_magnitude_spectrum);
+    let stft_imaginary_spectrogram: Vec<Vec<Complex<f64>>> = mp::rstft(audio, fft_size, fft_size / 2, aus::WindowType::Hamming, max_num_threads);
+    let (stft_magnitude_spectrogram, stft_phase_spectrogram) = spectrum::complex_to_polar_rstft(&stft_imaginary_spectrogram);
+    let stft_power_spectrogram = analysis::make_power_spectrogram(&stft_magnitude_spectrogram);
     let rfft_freqs = spectrum::rfftfreq(fft_size, sample_rate);
-    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, num_mels, &rfft_freqs, true, true);
-    let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrum, &mel_filterbank);
-    let mfccs = analysis::mel::mfcc_spectrogram(&mel_spectrogram, 2.0);
-
+    let mel_filterbank = analysis::mel::MelFilterbank::new(0.0, sample_rate as f64 / 2.0, num_mels, &rfft_freqs, true);
+    let mel_spectrogram = analysis::mel::make_mel_spectrogram(&stft_power_spectrogram, &mel_filterbank);
+    let mfccs = analysis::mel::mfcc_spectrogram(&mel_spectrogram, 0.0);
+    
     // Set up the multithreading
     let (tx, rx) = mpsc::channel();  // the message passing channel
 
     // Get the starting STFT frame index for each thread
     let mut thread_start_indices: Vec<usize> = vec![0; pool_size];
-    let num_frames_per_thread: usize = f64::ceil(stft_magnitude_spectrum.len() as f64 / pool_size as f64) as usize;
+    let num_frames_per_thread: usize = f64::ceil(stft_magnitude_spectrogram.len() as f64 / pool_size as f64) as usize;
     for i in 0..pool_size {
         thread_start_indices[i] = num_frames_per_thread * i;
     }
@@ -65,12 +65,12 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         let mut local_magnitude_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
         let mut local_mel_spectrum: Vec<Vec<f64>> = Vec::with_capacity(num_frames_per_thread);
         let start_idx = i * num_frames_per_thread;
-        let end_idx = usize::min(start_idx + num_frames_per_thread, stft_magnitude_spectrum.len());
+        let end_idx = usize::min(start_idx + num_frames_per_thread, stft_magnitude_spectrogram.len());
         for j in start_idx..end_idx {
-            let mut rfft_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrum[j].len());
-            let mut mel_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrum[j].len());
-            for k in 0..stft_magnitude_spectrum[j].len() {
-                rfft_frame.push(stft_magnitude_spectrum[j][k]);
+            let mut rfft_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrogram[j].len());
+            let mut mel_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrogram[j].len());
+            for k in 0..stft_magnitude_spectrogram[j].len() {
+                rfft_frame.push(stft_magnitude_spectrogram[j][k]);
             }
             for k in 0..mel_spectrogram[j].len() {
                 mel_frame.push(mel_spectrogram[j][k]);
@@ -80,9 +80,9 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
         }
 
         let prev_spectrum = if start_idx > 0 {
-            let mut spec: Vec<f64> = vec![0.0; stft_magnitude_spectrum[start_idx-1].len()];
-            for j in 0..stft_magnitude_spectrum[start_idx-1].len() {
-                spec[j] = stft_magnitude_spectrum[start_idx-1][j];
+            let mut spec: Vec<f64> = vec![0.0; stft_magnitude_spectrogram[start_idx-1].len()];
+            for j in 0..stft_magnitude_spectrogram[start_idx-1].len() {
+                spec[j] = stft_magnitude_spectrogram[start_idx-1][j];
             }
             Some(spec)
         } else {
@@ -139,12 +139,12 @@ pub fn analyze_audio_file(audio: &mut Vec<f64>, fft_size: usize, sample_rate: u3
     let mut mfccs1: Vec<Vec<f64>> = Vec::new();
 
     // Rotate the STFT data
-    for j in 0..stft_magnitude_spectrum[0].len() {
-        let mut rotated_mag_spectral_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrum.len());
-        let mut rotated_phase_spectral_frame: Vec<f64> = Vec::with_capacity(stft_phase_spectrum.len());
-        for i in 0..stft_magnitude_spectrum.len() {
-            rotated_mag_spectral_frame.push(stft_magnitude_spectrum[i][j]);
-            rotated_phase_spectral_frame.push(stft_phase_spectrum[i][j]);
+    for j in 0..stft_magnitude_spectrogram[0].len() {
+        let mut rotated_mag_spectral_frame: Vec<f64> = Vec::with_capacity(stft_magnitude_spectrogram.len());
+        let mut rotated_phase_spectral_frame: Vec<f64> = Vec::with_capacity(stft_phase_spectrogram.len());
+        for i in 0..stft_magnitude_spectrogram.len() {
+            rotated_mag_spectral_frame.push(stft_magnitude_spectrogram[i][j]);
+            rotated_phase_spectral_frame.push(stft_phase_spectrogram[i][j]);
 
         }
         magnitude_spectrogram1.push(rotated_mag_spectral_frame);
