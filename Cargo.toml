@@ -9,9 +9,9 @@ name = "aus_analyzer"
 crate-type = ["cdylib"]
 
 [dependencies]
-aus = {path="../aus-rust"}
+aus = "0.1.8"
 ndarray = "0.16.1"
 num = "0.4.3"
-numpy = "0.23.0"
-pyo3 = "0.23.1"
+numpy = "0.25.0"
+pyo3 = "0.25.0"
 threadpool = "1.8.1"
