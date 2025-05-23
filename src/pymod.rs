@@ -5,9 +5,10 @@ use pyo3::types::PyDict;
 use pyo3::Bound;
 use numpy::pyo3::Python;
 use numpy::{PyArray2, IntoPyArray};
-use crate::mp_analyzer;
+use crate::rstft_analyzer;
 use crate::AnalysisError;
 use crate::frame;
+use crate::rfft_analyzer;
 
 /// A module for working with spectral analysis and synthesis in Rust.
 #[pymodule]
@@ -35,8 +36,8 @@ fn str_to_window_type(window: &str) -> aus::WindowType {
 
 /// Analyzes an audio chunk
 #[pyfunction]
-pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: bool) -> PyResult<Bound<'_, PyDict>> {
-    let analysis = match frame::analyze(&audio, sample_rate, analyze_f0) {
+pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, num_mels: usize, num_mfccs: usize, analyze_f0: bool) -> PyResult<Bound<'_, PyDict>> {
+    let analysis = match frame::analyze(&audio, sample_rate, num_mels, num_mfccs, analyze_f0) {
         Ok(a) => a,
         Err(err) => return Err(PyValueError::new_err(err.msg))
     };
@@ -60,6 +61,10 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
     match analysis_dict.set_item(String::from("harmonicity"), analysis.harmonicity) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The harmonicity could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("mel_spectrum"), analysis.mel_spectrum) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The Mel spectrum could not be added to the analysis dictionary: {}", err)))
     };
     match analysis_dict.set_item(String::from("mfccs"), analysis.mfccs) {
         Ok(_) => (),
@@ -134,10 +139,29 @@ pub fn analyze_frame(py: Python, audio: Vec<f64>, sample_rate: u32, analyze_f0: 
 
 /// Analyzes a magnitude spectrum
 #[pyfunction]
-pub fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sample_rate: u32) -> PyResult<Bound<'_, PyDict>> {
-    let rfft_freqs = aus::spectrum::rfftfreq(fft_size, sample_rate);
-    let analysis = aus::analysis::analyzer(&magnitude_spectrum, None, sample_rate, &rfft_freqs);
+pub fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, sample_rate: u32, num_mels: usize, num_mfccs: usize) -> PyResult<Bound<'_, PyDict>> {
+    let analysis = rfft_analyzer::analyzer(&magnitude_spectrum, fft_size, sample_rate, num_mels, num_mfccs);
     let analysis_dict = PyDict::new(py);
+    match analysis_dict.set_item(String::from("alpha_ratio"), analysis.alpha_ratio) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The alpha ratio could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("hammarberg_index"), analysis.hammarberg_index) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The Hammarberg index could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("harmonicity"), analysis.harmonicity) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The harmonicity could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("mel_spectrum"), analysis.mel_spectrum) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The Mel spectrum could not be added to the analysis dictionary: {}", err)))
+    };
+    match analysis_dict.set_item(String::from("mfccs"), analysis.mfccs) {
+        Ok(_) => (),
+        Err(err) => return Err(PyValueError::new_err(format!("The MFCCs could not be added to the analysis dictionary: {}", err)))
+    };
     match analysis_dict.set_item(String::from("spectral_centroid"), analysis.spectral_centroid) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral centroid could not be added to the analysis dictionary: {}", err)))
@@ -162,19 +186,19 @@ pub fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, s
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral flatness could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_roll_off_50"), analysis.spectral_roll_off_50) {
+    match analysis_dict.set_item(String::from("spectral_roll_off_50"), analysis.spectral_rolloff_50) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 50 could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_roll_off_75"), analysis.spectral_roll_off_75) {
+    match analysis_dict.set_item(String::from("spectral_roll_off_75"), analysis.spectral_rolloff_75) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 75 could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_roll_off_90"), analysis.spectral_roll_off_90) {
+    match analysis_dict.set_item(String::from("spectral_roll_off_90"), analysis.spectral_rolloff_90) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 90 could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_roll_off_95"), analysis.spectral_roll_off_95) {
+    match analysis_dict.set_item(String::from("spectral_roll_off_95"), analysis.spectral_rolloff_95) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral roll off 95 could not be added to the analysis dictionary: {}", err)))
     };
@@ -182,15 +206,15 @@ pub fn analyze_rfft(py: Python, magnitude_spectrum: Vec<f64>, fft_size: usize, s
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_slope_0_1_khz"), analysis.spectral_slope_0_1_khz) {
+    match analysis_dict.set_item(String::from("spectral_slope_0_1_khz"), analysis.spectral_slope_01khz) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 0-1kHz could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_slope_1_5_khz"), analysis.spectral_slope_1_5_khz) {
+    match analysis_dict.set_item(String::from("spectral_slope_1_5_khz"), analysis.spectral_slope_15khz) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 1-5kHz could not be added to the analysis dictionary: {}", err)))
     };
-    match analysis_dict.set_item(String::from("spectral_slope_0_5_khz"), analysis.spectral_slope_0_5_khz) {
+    match analysis_dict.set_item(String::from("spectral_slope_0_5_khz"), analysis.spectral_slope_05khz) {
         Ok(_) => (),
         Err(err) => return Err(PyValueError::new_err(format!("The spectral slope 0-5kHz could not be added to the analysis dictionary: {}", err)))
     };
@@ -227,7 +251,7 @@ pub fn analyze_rstft(py: Python, file: String, fft_size: usize, num_mels: usize,
         }
     };
 
-    let analysis = mp_analyzer::analyze_audio_file(&mut audio_file.samples[0], fft_size, audio_file.sample_rate, num_mels, num_mfccs, Some(max_num_threads));
+    let analysis = rstft_analyzer::analyze(&mut audio_file.samples[0], fft_size, fft_size / 2, audio_file.sample_rate, num_mels, num_mfccs, Some(max_num_threads));
     let analysis_map = match make_analysis_map(py, analysis) {
         Ok(analysis) => analysis,
         Err(err) => return Err(PyValueError::new_err(format!("The analysis dictionary could not be created: {}", err.msg)))
@@ -239,15 +263,15 @@ pub fn analyze_rstft(py: Python, file: String, fft_size: usize, num_mels: usize,
 /// Each Analysis entry gets added to a vector containing all entries like it.
 /// For example, the PyDict will contain a key called "spectral_centroid" corresponding
 /// to an array of the spectral centroids.
-fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
-    let num_analysis_frames: usize = analysis.analysis.len();
+fn make_analysis_map(py: Python, analysis: rstft_analyzer::StftAnalysis) -> Result<Bound<'_, PyDict>, AnalysisError> {
+    let num_analysis_frames: usize = analysis.analyses.len();
     let analysis_dict = PyDict::new(py);
-    let mut magnitude_spectrogram: Vec<Vec<f32>> = Vec::new();
-    let mut phase_spectrogram: Vec<Vec<f32>> = Vec::new();
+    let mut power_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mel_spectrogram: Vec<Vec<f32>> = Vec::new();
     let mut mfccs: Vec<Vec<f32>> = Vec::new();
     let mut alpha_ratio: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut hammarberg_index: Vec<f32> = vec![0.0; num_analysis_frames];
+    let mut harmonicity: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut difference: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut flux: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut centroid: Vec<f32> = vec![0.0; num_analysis_frames];
@@ -264,15 +288,12 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
     let mut slope01: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut slope15: Vec<f32> = vec![0.0; num_analysis_frames];
     let mut slope05: Vec<f32> = vec![0.0; num_analysis_frames];
-    for i in 0..analysis.magnitude_spectrogram.len() {
-        let mut magnitude_spectrum: Vec<f32> = Vec::with_capacity(analysis.magnitude_spectrogram[i].len());
-        let mut phase_spectrum: Vec<f32> = Vec::with_capacity(analysis.phase_spectrogram[i].len());
-        for j in 0..analysis.magnitude_spectrogram[i].len() {
-            magnitude_spectrum.push(analysis.magnitude_spectrogram[i][j] as f32);
-            phase_spectrum.push(analysis.phase_spectrogram[i][j] as f32);
+    for i in 0..analysis.power_spectrogram.len() {
+        let mut magnitude_spectrum: Vec<f32> = Vec::with_capacity(analysis.power_spectrogram[i].len());
+        for j in 0..analysis.power_spectrogram[i].len() {
+            magnitude_spectrum.push(analysis.power_spectrogram[i][j] as f32);
         }
-        magnitude_spectrogram.push(magnitude_spectrum);
-        phase_spectrogram.push(phase_spectrum);
+        power_spectrogram.push(magnitude_spectrum);
     }
     for i in 0..analysis.mel_spectrogram.len() {
         let mut mel_spectrum: Vec<f32> = Vec::with_capacity(analysis.mel_spectrogram[i].len());        
@@ -289,33 +310,27 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
         mfccs.push(mfcc_frame);
     }
     for i in 0..num_analysis_frames {
-        alpha_ratio[i] = analysis.analysis[i].alpha_ratio as f32;
-        hammarberg_index[i] = analysis.analysis[i].hammarberg_index as f32;
-        difference[i] = analysis.analysis[i].spectral_difference as f32;
-        flux[i] = analysis.analysis[i].spectral_flux as f32;
-        centroid[i] = analysis.analysis[i].spectral_centroid as f32;
-        variance[i] = analysis.analysis[i].spectral_variance as f32;
-        skewness[i] = analysis.analysis[i].spectral_skewness as f32;
-        kurtosis[i] = analysis.analysis[i].spectral_kurtosis as f32;
-        entropy[i] = analysis.analysis[i].spectral_entropy as f32;
-        flatness[i] = analysis.analysis[i].spectral_flatness as f32;
-        roll_50[i] = analysis.analysis[i].spectral_roll_off_50 as f32;
-        roll_75[i] = analysis.analysis[i].spectral_roll_off_75 as f32;
-        roll_90[i] = analysis.analysis[i].spectral_roll_off_90 as f32;
-        roll_95[i] = analysis.analysis[i].spectral_roll_off_95 as f32;
-        slope[i] = analysis.analysis[i].spectral_slope as f32;
-        slope01[i] = analysis.analysis[i].spectral_slope_0_1_khz as f32;
-        slope15[i] = analysis.analysis[i].spectral_slope_1_5_khz as f32;
-        slope05[i] = analysis.analysis[i].spectral_slope_0_5_khz as f32;
+        alpha_ratio[i] = analysis.analyses[i].alpha_ratio as f32;
+        hammarberg_index[i] = analysis.analyses[i].hammarberg_index as f32;
+        harmonicity[i] = analysis.analyses[i].harmonicity as f32;
+        difference[i] = analysis.analyses[i].spectral_difference as f32;
+        flux[i] = analysis.analyses[i].spectral_flux as f32;
+        centroid[i] = analysis.analyses[i].spectral_centroid as f32;
+        variance[i] = analysis.analyses[i].spectral_variance as f32;
+        skewness[i] = analysis.analyses[i].spectral_skewness as f32;
+        kurtosis[i] = analysis.analyses[i].spectral_kurtosis as f32;
+        entropy[i] = analysis.analyses[i].spectral_entropy as f32;
+        flatness[i] = analysis.analyses[i].spectral_flatness as f32;
+        roll_50[i] = analysis.analyses[i].spectral_rolloff_50 as f32;
+        roll_75[i] = analysis.analyses[i].spectral_rolloff_75 as f32;
+        roll_90[i] = analysis.analyses[i].spectral_rolloff_90 as f32;
+        roll_95[i] = analysis.analyses[i].spectral_rolloff_95 as f32;
+        slope[i] = analysis.analyses[i].spectral_slope as f32;
+        slope01[i] = analysis.analyses[i].spectral_slope_01khz as f32;
+        slope15[i] = analysis.analyses[i].spectral_slope_15khz as f32;
+        slope05[i] = analysis.analyses[i].spectral_slope_05khz as f32;
     }
-    match analysis_dict.set_item(String::from("magnitude_spectrogram"), match PyArray2::from_vec2(py, &magnitude_spectrogram) {
-        Ok(x) => x,
-        Err(err) => return Err(AnalysisError{msg: err.to_string()})
-    }) {
-        Ok(_) => (),
-        Err(err) => return Err(AnalysisError{msg: err.to_string()})
-    }
-    match analysis_dict.set_item(String::from("phase_spectrogram"), match PyArray2::from_vec2(py, &phase_spectrogram) {
+    match analysis_dict.set_item(String::from("power_spectrogram"), match PyArray2::from_vec2(py, &power_spectrogram) {
         Ok(x) => x,
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     }) {
@@ -341,6 +356,10 @@ fn make_analysis_map(py: Python, analysis: mp_analyzer::StftAnalysis) -> Result<
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     };
     match analysis_dict.set_item(String::from("hammarberg_index"), hammarberg_index.into_pyarray(py).to_owned()) {
+        Ok(_) => (),
+        Err(err) => return Err(AnalysisError{msg: err.to_string()})
+    };
+    match analysis_dict.set_item(String::from("harmonicity"), harmonicity.into_pyarray(py).to_owned()) {
         Ok(_) => (),
         Err(err) => return Err(AnalysisError{msg: err.to_string()})
     };

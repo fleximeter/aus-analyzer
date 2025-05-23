@@ -1,6 +1,7 @@
-mod mp_analyzer;
+mod rstft_analyzer;
 mod frame;
 mod pymod;
+mod rfft_analyzer;
 
 #[doc(inline)]
 pub use pymod::*;

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Tuple
 
-def analyze_frame(audio: np.ndarray, sample_rate: int, analyze_f0: bool) -> dict:
+def analyze_frame(audio: np.ndarray, sample_rate: int, num_mels: int, num_mfccs: int, analyze_f0: bool) -> dict:
     """
     Analyzes an audio frame using the `aus-rust` crate. Returns an analysis
     dictionary with analysis features. 
@@ -10,6 +10,8 @@ def analyze_frame(audio: np.ndarray, sample_rate: int, analyze_f0: bool) -> dict
     ----------
     :param audio: An array of audio samples to featurize
     :param sample_rate: The audio sample rate
+    :param num_mels: The number of Mel bands
+    :param num_mfccs: The number of MFCCs to return
     :param analyze_f0: Whether or not to compute the fundamental frequency analysis (using pYin)
 
     Returns
@@ -18,7 +20,7 @@ def analyze_frame(audio: np.ndarray, sample_rate: int, analyze_f0: bool) -> dict
     """
     ...
 
-def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int) -> dict:
+def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int, num_mels: int, num_mfccs: int) -> dict:
     """
     Analyzes a real FFT frame using the `aus-rust` crate. Returns an analysis
     dictionary with spectral analysis features. 
@@ -28,6 +30,8 @@ def analyze_rfft(magnitude_spectrum: np.ndarray, fft_size: int, sample_rate: int
     :param magnitude_spectrum: The real FFT magnitude spectrum to analyze
     :param fft_size: The FFT size
     :param sample_rate: The audio sample rate
+    :param num_mels: The number of Mel bands
+    :param num_mfccs: The number of MFCCs to return
 
     Returns
     -------
@@ -47,7 +51,7 @@ def analyze_rstft(file: str, fft_size: int, num_mels: int = 128, num_mfccs: int 
     ----------
     :param file: The file name to load and analyze
     :param fft_size: The FFT size for the STFT
-    :param num_mels: The number of Mels in the Mel spectrogram
+    :param num_mels: The number of Mel bands
     :param num_mfccs: The number of MFCCs
     :param max_num_threads: The maximum number of threads to use (if set to 0, this will be set to the maximum allowed)
 
