@@ -1,7 +1,12 @@
 [package]
 name = "aus-analyzer"
-version = "0.1.6"
+license = "MIT OR Apache-2.0"
+version = "0.1.7"
 edition = "2021"
+description = "A Rust-based audio analyzer for Python"
+repository = "https://github.com/fleximeter/aus-analyzer"
+readme = "README.md"
+categories = ["multimedia", "multimedia::audio"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -9,7 +14,7 @@ name = "aus_analyzer"
 crate-type = ["cdylib"]
 
 [dependencies]
-aus = "0.1.8"
+aus = {path="../aus-rust"}
 ndarray = "0.16.1"
 num = "0.4.3"
 numpy = "0.25.0"
